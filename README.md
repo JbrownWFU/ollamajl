@@ -15,7 +15,7 @@ To install the `Ollamajl` package, you can use Julia's built-in package manager.
 
 ```julia
 using Pkg
-Pkg.add("Ollama")
+Pkg.add("Ollamajl")
 ```
 
 ## Usage

@@ -1,8 +1,14 @@
-module Ollama 
+module Ollamajl
+
+# PUBLIC
+# Ollama julia package
+# Currently supports chat, generate endpoints with limited arguments (TODO)
+# Chat uses a message history while generate returns a single completion.
+# Next: Adding embeddings endpoints for RAG usage
 
 using HTTP, JSON3
 
-export OllamaInstance
+export OllamaInstance, generate, chat, clearChat, printChat
 
 struct OllamaInstance
     url::String
@@ -10,7 +16,7 @@ struct OllamaInstance
     messages::Vector{Dict}
 end
 
-function initInstance(url::String, model::String)
+function initInstance(url::String; model::String)
     messages = []
     return OllamaInstance(
         url,
@@ -20,7 +26,7 @@ function initInstance(url::String, model::String)
 end
 
 # Generate a response
-function generate(ollama::OllamaInstance, message::String; stream=false)
+function generate(ollama::OllamaInstance, message::String; stream=false, format="")
     printstyled("=> $message\n"; color=:yellow)
 
     url = ollama.url * "/api/generate"
@@ -29,9 +35,13 @@ function generate(ollama::OllamaInstance, message::String; stream=false)
         "model" => ollama.model,
         "prompt" => message,
         "stream" => stream
-    ) |> JSON3.write
+    )
     
-    req = HTTP.request("POST", url, [], body)
+    if format != ""
+        body["format"] = format
+    end
+    
+    req = HTTP.request("POST", url, [], JSON3.write(body))
     resp = String(req.body) |> JSON3.read
 
     printstyled("<= $(resp.response)\n"; color=:green)
@@ -40,7 +50,7 @@ function generate(ollama::OllamaInstance, message::String; stream=false)
 end
     
 # Chat with message history
-function chat(ollama::OllamaInstance, message::String; stream=false)
+function chat(ollama::OllamaInstance, message::String; stream=false, format="")
     printstyled("=> $message\n"; color=:yellow)
 
     url = ollama.url * "/api/chat"
@@ -52,9 +62,13 @@ function chat(ollama::OllamaInstance, message::String; stream=false)
         "model" => ollama.model,
         "messages" => ollama.messages,
         "stream" => stream
-    ) |> JSON3.write
+    ) 
     
-    req = HTTP.request("POST", url, [], body)
+    if format != ""
+        body["format"] = format
+    end
+    
+    req = HTTP.request("POST", url, [], JSON3.write(body))
     resp = String(req.body) |> JSON3.read
     
     # Push response to conversation history
@@ -65,10 +79,14 @@ function chat(ollama::OllamaInstance, message::String; stream=false)
     return resp
 end
 
+# Helpers
+
+# Clear ollama chat messsage history
 function clearChat(ollama::OllamaInstance)
     resize!(ollama.messages, 0)
 end
 
+# Pretty print ollama chat messsage history
 function printChat(ollama::OllamaInstance)
     for msg in ollama.messages
         if msg["role"] == "user"
@@ -79,5 +97,9 @@ function printChat(ollama::OllamaInstance)
     end
 end
 
+# Set first message system prompt for conversations 
+function setSysPrompt(ollama::OllamaInstance, prompt::String)
+    ollama.messages = insert!(ollama.messages, 1, prompt)
+end
 
 end

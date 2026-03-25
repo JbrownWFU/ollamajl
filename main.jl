@@ -1,23 +1,23 @@
-begin
+begin 
     using Pkg
     Pkg.activate(".")
     
-    using HTTP, JSON3
+    using HTTP, JSON3, DotEnv
     
     include("ollama.jl")
 end
 
-ollama = Ollama.initInstance(
-    "http://127.0.0.1:11434", 
-    "granite4:3b"
-    )
+begin
+    template = read("templates/v1.md") |> String
+    sysPrompt = read("prompts/readmer.md") |> String
+end
 
-# prompt = "hello robot"
-# resp = Ollama.generate(ollama, prompt)
+ollama = Ollamajl.initInstance(
+    "http://192.168.1.165:11434", 
+    model="granite4:3b")
 
-chatPrompt = "whats the status of the hyperdrive"
-chatResp = Ollama.chat(ollama, chatPrompt)
+code = read("ollama.jl") |> String
 
-Ollama.printChat(ollama)
+query = sysPrompt * "\nCode:\n" * code
 
-Ollama.clearChat(ollama)
+gen = Ollamajl.generate(ollama, query)

@@ -1,5 +1,13 @@
 package main
 
+// PUBLIC
+// Github Author: JbrownWFU
+// Github Project Name: pkeys
+
+// PUBLIC
+// Simple go CLI tool for encrypting and decrypting plaintext strings.
+// Supports reading and writing directly to clipboard for convenience.
+
 // AES (Advanced Encryption Standard) is the encryption algorithm that actually encrypts / decrypts
 // GCM (Galois/Counter Mode) is a specific mode of operation for block ciphers (such as AES)
 // AEAD (Authenticated Encrypted with Associated Data) is a category of encryption modes such as GCM providing data encryption & authentication

@@ -1,3 +1,5 @@
+name = "Ollamajl"
+uuid = "f7b3ce1d-1f05-4584-b8f4-dd8cf938ebab"
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DotEnv = "4dc1fcf4-5e3b-5448-94ab-0c38ec0385c1"

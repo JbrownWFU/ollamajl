@@ -1,105 +1,55 @@
 module Ollamajl
 
-# PUBLIC
-# Ollama julia package
-# Currently supports chat, generate endpoints with limited arguments (TODO)
-# Chat uses a message history while generate returns a single completion.
-# Next: Adding embeddings endpoints for RAG usage
+using HTTP, JSON3, StructTypes
 
-using HTTP, JSON3
-
-export OllamaInstance, generate, chat, clearChat, printChat
+export OllamaInstance, GenerateOptions, initInstance, generate, chat
 
 struct OllamaInstance
     url::String
+    messages::Vector{Dict{String, Any}}
+end
+
+function initInstance(url::String)
+    return OllamaInstance(url, Dict{String, Any}[])
+end
+
+Base.@kwdef struct GenerateOptions
     model::String
-    messages::Vector{Dict}
+    prompt::Any = nothing
+    stream::Union{Bool, Nothing} = nothing
+    format::Union{String, Nothing} = nothing
+    suffix::Union{String, Nothing} = nothing
 end
 
-function initInstance(url::String; model::String)
-    messages = []
-    return OllamaInstance(
-        url,
-        model,
-        messages
-    )
-end
+StructTypes.StructType(::Type{GenerateOptions}) = StructTypes.Struct()
+StructTypes.omitempties(::Type{GenerateOptions}) = true
 
-# Generate a response
-function generate(ollama::OllamaInstance, message::String; stream=false, format="")
-    printstyled("=> $message\n"; color=:yellow)
-
+function generate(ollama::OllamaInstance, opts::GenerateOptions)
     url = ollama.url * "/api/generate"
-    
-    body = Dict(
-        "model" => ollama.model,
-        "prompt" => message,
-        "stream" => stream
-    )
-    
-    if format != ""
-        body["format"] = format
-    end
-    
-    req = HTTP.request("POST", url, [], JSON3.write(body))
-    resp = String(req.body) |> JSON3.read
+    body = JSON3.write(opts)
+    req = HTTP.request("POST", url, [], body)
 
-    printstyled("<= $(resp.response)\n"; color=:green)
-    
-    return resp
+    return req
 end
-    
-# Chat with message history
-function chat(ollama::OllamaInstance, message::String; stream=false, format="")
-    printstyled("=> $message\n"; color=:yellow)
 
+# Convenience with kwargs
+function generate(ollama::OllamaInstance; kwargs...)
+    opts = GenerateOptions(; kwargs...)
+    return generate(ollama, opts)
+end
+
+function chat(ollama::OllamaInstance, opts::GenerateOptions)
     url = ollama.url * "/api/chat"
-    
-    # Update messsage history
-    push!(ollama.messages, Dict("role" => "user", "content" => message))
-    
-    body = Dict(
-        "model" => ollama.model,
-        "messages" => ollama.messages,
-        "stream" => stream
-    ) 
-    
-    if format != ""
-        body["format"] = format
-    end
-    
-    req = HTTP.request("POST", url, [], JSON3.write(body))
-    resp = String(req.body) |> JSON3.read
-    
-    # Push response to conversation history
-    push!(ollama.messages, Dict("role" => resp.message.role, "content" => resp.message.content))
-    
-    printstyled("<= $(resp.message.content)\n"; color=:green)
-    
-    return resp
+    body = JSON3.write(opts)
+    req = HTTP.request("POST", url, [], body)
+
+    return req
 end
 
-# Helpers
-
-# Clear ollama chat messsage history
-function clearChat(ollama::OllamaInstance)
-    resize!(ollama.messages, 0)
-end
-
-# Pretty print ollama chat messsage history
-function printChat(ollama::OllamaInstance)
-    for msg in ollama.messages
-        if msg["role"] == "user"
-            printstyled("<> $(msg["content"])\n"; color=:yellow)
-        else
-            printstyled("<> $(msg["content"])\n"; color=:green)
-        end
-    end
-end
-
-# Set first message system prompt for conversations 
-function setSysPrompt(ollama::OllamaInstance, prompt::String)
-    ollama.messages = insert!(ollama.messages, 1, prompt)
+# Convenience with kwargs
+function chat(ollama::OllamaInstance; kwargs...)
+    opts = GenerateOptions(; kwargs...)
+    return generate(ollama, opts)
 end
 
 end

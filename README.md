@@ -13,7 +13,7 @@ A lightweight and flexible Julia wrapper for the [Ollama](https://ollama.com/) A
 - **Extensible**: Includes initial support for tool calling and advanced generation parameters via `SubOptions`.
 
 ## Ollama API Documentation
-see the [Ollama API Docs](https://docs.ollama.com/api/introduction) for more information on the Ollama API, 
+see the [Ollama API Docs](https://docs.ollama.com/api/introduction) for more information on the Ollama API.
 
 ## Installation
 

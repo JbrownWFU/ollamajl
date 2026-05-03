@@ -10,3 +10,5 @@ begin
 end
 
 client = Ollamajl.Client()
+
+g = Ollamajl.generate(model="gemma4:e2b")

@@ -67,5 +67,30 @@ end
 # Endpoints
 # *****
 
+# Generate a response
+# https://docs.ollama.com/api/generate
+# Full Kwargs
+function generate(;
+        client::Client=DEFAULT_OLLAMA_CLIENT,
+        model::String,
+        prompt::Union{String, Nothing}=nothing,
+        suffix::Union{String, Nothing}=nothing,
+        images::Union{Vector{String}, Nothing}=nothing,
+        format::Union{AbstractDict, String, Nothing}=nothing,
+        system::Union{String, Nothing}=nothing,
+        stream::Bool=true
+)
+
+    _generate(;
+        client=client,
+        
+    )
+
+end
+
+function _generate(; client::Client=DEFAULT_OLLAMA_CLIENT, Kwargs...)
+    println("Internal")
+end
+
 
 end # module

@@ -11,6 +11,9 @@ export pprint,
 #=
 TODO
 - Implement streaming for all request types
+- Implement base64 encoding for images
+- Build tools objects
+- Implement julia func -> tool utility
 - Ensure if a custom return schema is passed that it is able to be returned
 =#
 

@@ -20,6 +20,9 @@ for chunk in generate(model="gemma4:e4b", prompt="Write a 3 line poem about Juli
     print(chunk.response)
 end
 
+# With an image
+img = 
+
 # 3. Non-streaming Chat
 ms = Message("user", "What is 2+2?")
 resp = chat(model="gemma4:e4b", messages=[ms], stream=false)

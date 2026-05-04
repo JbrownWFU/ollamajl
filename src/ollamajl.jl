@@ -1,5 +1,7 @@
 module Ollamajl
 
+include("utils.jl")
+
 using HTTP, JSON3, StructTypes, BufferedStreams
 
 export pprint,
@@ -266,6 +268,7 @@ function generate(;
     prompt::Union{Nothing, String} = nothing,
     suffix::Union{Nothing, String} = nothing,
     # TODO add support for Base64 encoded images
+    # Allow input of paths?
     images::Union{Nothing, Vector{String}} = nothing,
     format::Union{Nothing, String} = nothing,
     system::Union{Nothing, String} = nothing,

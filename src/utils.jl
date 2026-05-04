@@ -1,5 +1,7 @@
 module Utils
     using Base64
+
+export encodeFile
     
 
 # Base64 encode a file (usually images)

@@ -1,25 +1,21 @@
 module Ollamajl
 
-using HTTP, JSON3, StructTypes, BufferedStreams
+using HTTP, JSON3, StructTypes
 
 export pprint,
     Client,
     generate,
     chat,
-    Message,
-    embed
+    Message
+       
 
 #=
 TODO
-- [x] Implement streaming for all request types
+- Implement streaming for all request types
 - Implement base64 encoding for images
 - Build tools objects
 - Implement julia func -> tool utility
 - Ensure if a custom return schema is passed that it is able to be returned
-- Fix OllamaError exception handling
-- Fix Options and parameters in GenerateRequest
-- Handle streamable vs non-streamable responses in GenerateResponse
-- Implement tool_calls in Message struct
 =#
 
 # Ollama API wrapper for Julia
@@ -226,6 +222,7 @@ StructTypes.StructType(::Type{ChatResponse}) = StructTypes.Struct()
     truncate::Bool=true
     dimensions::Union{Nothing, Int}=nothing
     options::Union{Nothing, Options}=nothing
+    stream::Bool=true
     keep_alive::Union{Nothing, String}=nothing
     top_logprobs::Union{Nothing, Int}=nothing
 end
@@ -263,19 +260,19 @@ endpoint(::EmbedRequest) = "/api/embed"
 function generate(;
     client::Client=DEFAULT_OLLAMA_CLIENT,
     model::String,
-    prompt::Union{Nothing, String} = nothing,
-    suffix::Union{Nothing, String} = nothing,
+    prompt::Union{Nothing, String}=nothing,
+    suffix::Union{Nothing, String}=nothing,
     # TODO add support for Base64 encoded images
-    images::Union{Nothing, Vector{String}} = nothing,
-    format::Union{Nothing, String} = nothing,
-    system::Union{Nothing, String} = nothing,
+    images::Union{Nothing, Vector{String}}=nothing,
+    format::Union{Nothing, String}=nothing,
+    system::Union{Nothing, String}=nothing,
     stream::Bool=true,
-    think::Union{Nothing, Bool, String} = nothing,
-    raw::Union{Nothing, Bool} = nothing,
-    keep_alive::Union{Nothing, String} = nothing,
-    options::Union{Nothing, Options} = nothing,
-    logprobs::Union{Nothing, Bool} = nothing,
-    top_logprobs::Union{Nothing, Int} = nothing
+    think::Union{Nothing, Bool, String}=nothing,
+    raw::Union{Nothing, Bool}=nothing,
+    keep_alive::Union{Nothing, String}=nothing,
+    options::Union{Nothing, Options}=nothing,
+    logprobs::Union{Nothing, Bool}=nothing,
+    top_logprobs::Union{Nothing, Int}=nothing
 )
     # Build request object
     req = GenerateRequest(
@@ -305,13 +302,13 @@ function chat(;
     model::String,
     messages::Union{AbstractDict, Vector{Message}},
     # TODO add tools object
-    format::Union{Nothing, String} = nothing,
+    format::Union{Nothing, String}=nothing,
     stream::Bool=true,
-    think::Union{Nothing, Bool, String} = nothing,
-    keep_alive::Union{Nothing, String} = nothing,
-    options::Union{Nothing, Options} = nothing,
-    logprobs::Union{Nothing, Bool} = nothing,
-    top_logprobs::Union{Nothing, Int} = nothing
+    think::Union{Nothing, Bool, String}=nothing,
+    keep_alive::Union{Nothing, String}=nothing,
+    options::Union{Nothing, Options}=nothing,
+    logprobs::Union{Nothing, Bool}=nothing,
+    top_logprobs::Union{Nothing, Int}=nothing
 )
     req = ChatRequest(
         model=model,
@@ -336,10 +333,11 @@ function embed(;
     model::String,
     input::Union{String, Vector{String}},
     truncate::Bool=true,
-    dimensions::Union{Nothing, Int} = nothing,
-    options::Union{Nothing, Options} = nothing,
-    keep_alive::Union{Nothing, String} = nothing,
-    top_logprobs::Union{Nothing, Int} = nothing,
+    dimensions::Union{Nothing, Int}=nothing,
+    options::Union{Nothing, Options}=nothing,
+    stream::Bool=true,
+    keep_alive::Union{Nothing, String}=nothing,
+    top_logprobs::Union{Nothing, Int}=nothing,
 )
 
     req = EmbedRequest(
@@ -348,6 +346,7 @@ function embed(;
         truncate=truncate,
         dimensions=dimensions,
         options=options,
+        stream=stream,
         keep_alive=keep_alive,
         top_logprobs=top_logprobs
     )
@@ -360,39 +359,19 @@ function _request(client::Client, req::AbstractRequest)
     url = client.host * endpoint(req)
     body = JSON3.write(req)
     
-    streaming = hasproperty(req, :stream) && req.stream
-
+    # TODO handle streaming vs non-streaming
     try
-        if streaming
-            return Channel{responseType(req)}() do channel
-                HTTP.open("POST", url, client.headers) do stream
-                    write(stream, body)
-                    HTTP.closewrite(stream)
-                    HTTP.startread(stream)
-                    try
-                        bufferedStream = BufferedInputStream(stream)
-                        for line in eachline(bufferedStream)
-                            if !isempty(line)
-                                push!(channel, JSON3.read(line, responseType(req)))
-                            end
-                        end
-                    catch err
-                        if !(err isa EOFError)
-                            rethrow(err)
-                        end
-                    end
-                end
-            end
-        else
-            resp = HTTP.post(
-                url,
-                client.headers,
-                body
-            ) 
-            
-            return JSON3.read(resp.body, responseType(req))
-        end
+        resp = HTTP.post(
+            url,
+            client.headers,
+            body
+        ) 
+        
+        return JSON3.read(resp.body, responseType(req))
     catch err
+        
+        # TODO for debug
+
         @error err exception=(err, catch_backtrace())
         return nothing
     end

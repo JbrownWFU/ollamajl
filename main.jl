@@ -9,14 +9,26 @@ begin
     using HTTP, JSON3
 end
 
+# Optionally define a client
 client = Client()
 
-g = generate(model="granite4:3b", prompt="Hello robot", stream=false)
-# pprint(g)
+# 1. Non-streaming Generate
+resp = generate(model="gemma4:e4b", prompt="What is Julia (programming language) in one sentence?", stream=false)
 
-# opts = Ollamajl.Options(temperature=65.0)
-# g = generate(model="granite4:3b", prompt="Hello bot", stream=false, options=opts)
+# 2. Streaming Generate
+for chunk in generate(model="gemma4:e4b", prompt="Write a 3 line poem about Julia.", stream=true)
+    print(chunk.response)
+end
 
-# Chat
-ms = Ollamajl.Message("user", "hello brobot")
-c = Ollamajl.chat(model="granite4:3b", messages=[ms], stream=false)
+# 3. Non-streaming Chat
+ms = Message("user", "What is 2+2?")
+resp = chat(model="gemma4:e4b", messages=[ms], stream=false)
+
+# 4. Streaming Chat
+ms = Message("user", "Tell me a short 2 paragaph story about a robot.")
+for chunk in chat(model="gemma4:e4b", messages=[ms], stream=true)
+    print(chunk.message.content)
+end
+
+# 5. Embedding (No streaming support)
+emb = Ollamajl.embed(model="embeddinggemma", input="Julia is fast!")

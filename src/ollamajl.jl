@@ -3,6 +3,7 @@ module Ollamajl
 include("utils.jl")
 
 using HTTP, JSON3, StructTypes, BufferedStreams
+using .Utils
 
 export pprint,
     Client,
@@ -10,7 +11,6 @@ export pprint,
     chat,
     Message,
     embed
-
 #=
 TODO
 - [x] Implement streaming for all request types
@@ -50,14 +50,19 @@ struct OllamaError <: Exception
 end
 
 function _error(err::HTTP.Exceptions.StatusError)
-    body = String(err.response.body) |> 
-    JSON3.read
+    body_str = String(err.response.body)
+    
+    parsed_error = try
+        string(JSON3.read(body_str)[:error])
+    catch
+        body_str
+    end
 
     return OllamaError(
         err.status,
         err.method,
         err.target,
-        body
+        parsed_error
     )
 end
 
@@ -148,6 +153,7 @@ end
 
 StructTypes.StructType(::Type{GenerateRequest}) = StructTypes.Struct()
 StructTypes.omitempties(::Type{GenerateRequest}) = true
+StructTypes.excludes(::Type{GenerateRequest}) = (:client,)
 
 # TODO Deal with streamable vs non streamable
 @Base.kwdef struct GenerateResponse <: AbstractResponse
@@ -175,18 +181,22 @@ StructTypes.StructType(::Type{GenerateResponse}) = StructTypes.Struct()
 # Messages / Chat endpoint
 @Base.kwdef struct Message
     role::String
-    content::String
+    content::String = ""
+    images::Union{Nothing, Vector{String}} = nothing
+    tool_calls::Union{Nothing, Vector{Dict{String, Any}}} = nothing
     thinking::Union{Nothing, String} = nothing
-    # TODO implement tool_calls vector / object
-    
-    Message() = new(role, content, nothing)
-    Message(role, content) = new(role, content, nothing)
-    Message(role, content, thinking) = new(role, content, thinking)
 end
+
+# Outer constructors for convenience
+Message(role::String, content::String) = Message(role=role, content=content)
+Message(role::String, content::String, thinking::String) = Message(role=role, content=content, thinking=thinking)
+Message(role::String, content::String, images::Vector{String}) = Message(role=role, content=content, images=parseImage.(images))
  
 StructTypes.StructType(::Type{Message}) = StructTypes.Struct()
+StructTypes.omitempties(::Type{Message}) = true
 
 @Base.kwdef struct ChatRequest <: AbstractRequest
+    client::Client=DEFAULT_OLLAMA_CLIENT
     model::String
     # User can pass a dict or a built messages object
     messages::Union{AbstractDict, Vector{Message}}
@@ -202,6 +212,7 @@ end
 
 StructTypes.StructType(::Type{ChatRequest}) = StructTypes.Struct()
 StructTypes.omitempties(::Type{ChatRequest}) = true
+StructTypes.excludes(::Type{ChatRequest}) = (:client,)
 
 @Base.kwdef struct ChatResponse <: AbstractResponse
     model::String
@@ -223,6 +234,7 @@ end
 StructTypes.StructType(::Type{ChatResponse}) = StructTypes.Struct()
 
 @Base.kwdef struct EmbedRequest <: AbstractRequest
+    client::Client=DEFAULT_OLLAMA_CLIENT
     model::String
     input::Union{String, Vector{String}}
     truncate::Bool=true
@@ -234,6 +246,7 @@ end
 
 StructTypes.StructType(::Type{EmbedRequest}) = StructTypes.Struct()
 StructTypes.omitempties(::Type{EmbedRequest}) = true
+StructTypes.excludes(::Type{EmbedRequest}) = (:client,)
 
 @Base.kwdef struct EmbedResponse <: AbstractResponse
     model::String
@@ -267,8 +280,6 @@ function generate(;
     model::String,
     prompt::Union{Nothing, String} = nothing,
     suffix::Union{Nothing, String} = nothing,
-    # TODO add support for Base64 encoded images
-    # Allow input of paths?
     images::Union{Nothing, Vector{String}} = nothing,
     format::Union{Nothing, String} = nothing,
     system::Union{Nothing, String} = nothing,
@@ -280,12 +291,16 @@ function generate(;
     logprobs::Union{Nothing, Bool} = nothing,
     top_logprobs::Union{Nothing, Int} = nothing
 )
+    # Process images if any are passed
+    processedImages = isnothing(images) ? nothing : parseImage.(images)
+
     # Build request object
     req = GenerateRequest(
+        client=client,
         model=model,
         prompt=prompt,
         suffix=suffix,
-        images=images,
+        images=processedImages,
         format=format,
         system=system,
         stream=stream,
@@ -316,9 +331,23 @@ function chat(;
     logprobs::Union{Nothing, Bool} = nothing,
     top_logprobs::Union{Nothing, Int} = nothing
 )
+    # Process images in messages
+    processedMessages = if messages isa Vector{Message}
+        [Message(
+            role=m.role,
+            content=m.content,
+            images=isnothing(m.images) ? nothing : parseImage.(m.images),
+            tool_calls=m.tool_calls,
+            thinking=m.thinking
+        ) for m in messages]
+    else
+        messages
+    end
+
     req = ChatRequest(
+        client=client,
         model=model,
-        messages=messages,
+        messages=processedMessages,
         format=format,
         stream=stream,
         think=think,
@@ -346,6 +375,7 @@ function embed(;
 )
 
     req = EmbedRequest(
+        client=client,
         model=model,
         input=input,
         truncate=truncate,
@@ -396,8 +426,11 @@ function _request(client::Client, req::AbstractRequest)
             return JSON3.read(resp.body, responseType(req))
         end
     catch err
-        @error err exception=(err, catch_backtrace())
-        return nothing
+        if err isa HTTP.Exceptions.StatusError
+            throw(_error(err))
+        else
+            rethrow(err)
+        end
     end
 end
 

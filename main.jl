@@ -13,23 +13,32 @@ end
 client = Client()
 
 # 1. Non-streaming Generate
-resp = generate(model="gemma4:e4b", prompt="What is Julia (programming language) in one sentence?", stream=false)
+resp = generate(model="gemma4:e2b", prompt="What is Julia (programming language) in one sentence?", stream=false)
+
+dog = generate(model="gemma4:e2b", prompt="What is this?", images=["resources/dog.png"], stream=false)
+pprint(dog)
+
+cat = generate(model="gemma4:e2b", prompt="What is this?", images=["resources/cat.jpg"], stream=false)
+pprint(cat)
+
+fish = generate(model="gemma4:e2b", prompt="What is this?", images=["resources/fish.webp"], stream=false)
+pprint(fish)
 
 # 2. Streaming Generate
-for chunk in generate(model="gemma4:e4b", prompt="Write a 3 line poem about Julia.", stream=true)
+for chunk in generate(model="gemma4:e2b", prompt="Write a 3 line poem about Julia.", stream=true)
     print(chunk.response)
 end
 
+# TODO test with image
 # With an image
-img = 
 
 # 3. Non-streaming Chat
 ms = Message("user", "What is 2+2?")
-resp = chat(model="gemma4:e4b", messages=[ms], stream=false)
+resp = chat(model="gemma4:e2b", messages=[ms], stream=false)
 
 # 4. Streaming Chat
 ms = Message("user", "Tell me a short 2 paragaph story about a robot.")
-for chunk in chat(model="gemma4:e4b", messages=[ms], stream=true)
+for chunk in chat(model="gemma4:e2b", messages=[ms], stream=true)
     print(chunk.message.content)
 end
 

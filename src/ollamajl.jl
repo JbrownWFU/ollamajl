@@ -360,7 +360,17 @@ function generate(;
     processedImages = isnothing(images) ? nothing : parseImage.(images)
     
     # Merge direct option kwargs
-    mergedOptions = _mergeOptions(options, seed=seed, temperature=temperature, top_k=top_k, top_p=top_p, min_p=min_p, stop=stop, num_ctx=num_ctx, num_predict=num_predict)
+    mergedOptions = _mergeOptions(
+        options, 
+        seed=seed, 
+        temperature=temperature, 
+        top_k=top_k, 
+        top_p=top_p, 
+        min_p=min_p, 
+        stop=stop, 
+        num_ctx=num_ctx, 
+        num_predict=num_predict
+    )
 
     # Build request object
     req = GenerateRequest(
@@ -428,7 +438,17 @@ function chat(;
         nothing
     end
     
-    mergedOptions = _mergeOptions(options, seed=seed, temperature=temperature, top_k=top_k, top_p=top_p, min_p=min_p, stop=stop, num_ctx=num_ctx, num_predict=num_predict)
+    mergedOptions = _mergeOptions(
+        options, 
+        seed=seed, 
+        temperature=temperature, 
+        top_k=top_k, 
+        top_p=top_p, 
+        min_p=min_p, 
+        stop=stop, 
+        num_ctx=num_ctx, 
+        num_predict=num_predict
+    )
 
     req = ChatRequest(
         client=client,
@@ -469,7 +489,17 @@ function embed(;
     num_predict::Union{Nothing, Int}=nothing
 )
     
-    mergedOptions = _mergeOptions(options, seed=seed, temperature=temperature, top_k=top_k, top_p=top_p, min_p=min_p, stop=stop, num_ctx=num_ctx, num_predict=num_predict)
+    mergedOptions = _mergeOptions(
+        options, 
+        seed=seed, 
+        temperature=temperature, 
+        top_k=top_k, 
+        top_p=top_p, 
+        min_p=min_p, 
+        stop=stop, 
+        num_ctx=num_ctx, 
+        num_predict=num_predict
+    )
 
     req = EmbedRequest(
         client=client,

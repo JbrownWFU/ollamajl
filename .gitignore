@@ -1,2 +1,5 @@
 docs/
 ollama-python/
+ref/
+backup/
+main.jl

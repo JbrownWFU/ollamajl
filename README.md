@@ -1,15 +1,17 @@
-# Ollamajl.jl 🤖🚀
+# Ollamajl.jl 🤖
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Julia Version](https://img.shields.io/badge/julia-v1.6+-blue.svg)](https://julialang.org)
 
 **The most idiomatic way to use Ollama in Julia.** 
 
-`Ollamajl.jl` brings the simplicity of the official Python library to the Julia ecosystem, while leveraging Julia's powerful type system and meta-programming for a seamless experience.
+`Ollamajl.jl` brings the simplicity of the official [Ollama Python library](https://github.com/ollama/ollama-python) to the Julia ecosystem, while leveraging Julia's powerful type system and meta-programming for a seamless experience.
+
+For more information on the underlying endpoints and capabilities, please refer to the [official Ollama API documentation](https://docs.ollama.com/api/introduction).
 
 ---
 
-## ✨ Features
+## Features ✨
 
 - **Zero Configuration:** Works out of the box with your local Ollama instance.
 - **Streaming by Default:** Built for responsiveness—get tokens as they're generated.
@@ -17,7 +19,7 @@
 - **Effortless Multimodal:** Pass local file paths directly to vision models like `llava`.
 - **Type Safe:** Fully typed responses powered by `StructTypes` and `JSON3`.
 
-## 📦 Installation
+## Installation
 
 ```julia
 using Pkg
@@ -25,7 +27,7 @@ using Pkg
 Pkg.add(url="https://github.com/yourusername/Ollamajl.jl")
 ```
 
-## 🚀 Quick Start
+## Quick Start 🚀
 
 No need to set up a client or configure headers—just start chatting.
 
@@ -45,9 +47,9 @@ resp = generate(model="llama3", prompt="Why is Julia great for AI?", stream=fals
 println(resp.response)
 ```
 
-## 🛠️ Advanced Usage
+## Advanced Usage 🛠️
 
-### 🛠️ Automatic Tool Calling
+### Automatic Tool Calling
 Stop writing JSON schemas by hand. `Ollamajl` introspects your Julia functions, extracts their documentation, and builds the schema for you.
 
 ```julia
@@ -72,7 +74,7 @@ if !isnothing(resp.message.tool_calls)
 end
 ```
 
-### 👁️ Vision (Multimodal)
+### Vision (Multimodal) 👁️
 Pass local file paths, base64 strings, or Data URIs. We handle the encoding automatically.
 
 ```julia
@@ -84,7 +86,7 @@ resp = generate(
 )
 ```
 
-### 🔗 Custom Clients & Options
+### Custom Clients & Options
 Need to connect to a remote server or tweak model parameters?
 
 ```julia
@@ -100,7 +102,7 @@ resp = generate(
 )
 ```
 
-## 📖 API Reference
+## API Reference 📖
 
 - `chat(...)`: Conversation endpoint (returns `Channel` if streaming).
 - `generate(...)`: Completion endpoint (returns `Channel` if streaming).
@@ -108,5 +110,5 @@ resp = generate(
 - `pprint(resp)`: Pretty prints responses with some terminal color.
 - `Message(role, content, [images])`: The building block for chat history.
 
-## 📜 License
+## License
 MIT

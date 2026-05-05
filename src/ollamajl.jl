@@ -14,15 +14,16 @@ export pprint,
 #=
 TODO
 - [x] Implement streaming for all request types
-- Implement base64 encoding for images
+- Fix Client instantiation
 - Build tools objects
+- Implement tool_calls in Message struct
 - Implement julia func -> tool utility
 - Ensure if a custom return schema is passed that it is able to be returned
 - Fix OllamaError exception handling
 - Fix Options and parameters in GenerateRequest
-- Handle streamable vs non-streamable responses in GenerateResponse
-- Implement tool_calls in Message struct
 =#
+
+# Jenson Brown - 05/2026
 
 # Ollama API wrapper for Julia
 # Based on official Ollama Python library
@@ -43,10 +44,14 @@ abstract type AbstractResponse end
 
 # TODO fix
 struct OllamaError <: Exception
-    status::Int16
+    status::Int
     method::String
     target::String
     error::String
+end
+
+function Base.showerror(io::IO, e::OllamaError)
+    print(io, "OllamaError($(e.status)): $(e.error) [$(e.method) $(e.target)]")
 end
 
 function _error(err::HTTP.Exceptions.StatusError)
@@ -69,27 +74,29 @@ end
 # Ollama client
 Base.@kwdef struct Client <: AbstractOllamaClient 
     host::String
-    headers::Dict{String, String}
-    timeout::Union{Int64, Nothing}
+    # headers::Dict{String, String}
+    headers::Vector{Pair{String, String}}
+    timeout::Union{Int64, Nothing}=nothing
 end
 
 function Client(;
         host::Union{String, Nothing} = "http://127.0.0.1:11434",
-        headers::Union{AbstractDict, Nothing} = Dict{String, String}(),
+        headers::Union{Vector{Pair{String, String}}, Nothing} = nothing,
         timeout = nothing
 )
-    # Default headers
-    finalHeaders = Dict{String, String}(
+    finalHeaders = [
         "Content-Type" => "application/json",
         "Accept" => "application/json",
         "User-Agent" => "ollama-julia/0.1.0"
-    )
+    ]
     
-    # Merge user headers if any are passed
     if !isnothing(headers)
-        for (k,v) in headers
-            finalHeaders[string(k) |> lowercase] = string(v)
+        # Convert default to Dict to easily overwrite existing keys, then back to Vector
+        header_dict = Dict(finalHeaders)
+        for (k, v) in headers
+            header_dict[k] = v
         end
+        finalHeaders = [k => v for (k, v) in header_dict]
     end
     
     return Client(host, finalHeaders, timeout)
@@ -97,6 +104,37 @@ end
 
 # Default client so the user doesn't have to instantiate a client for one shots
 const DEFAULT_OLLAMA_CLIENT = Client()
+
+# Tool Calling Structs
+@Base.kwdef struct ToolFunction
+    name::String
+    description::String
+    parameters::Dict{String, Any}
+end
+
+StructTypes.StructType(::Type{ToolFunction}) = StructTypes.Struct()
+
+@Base.kwdef struct Tool
+    type::String = "function"
+    func::ToolFunction
+end
+
+StructTypes.StructType(::Type{Tool}) = StructTypes.Struct()
+StructTypes.names(::Type{Tool}) = ((:func, :function),)
+
+@Base.kwdef struct ToolCallFunction
+    name::String
+    arguments::Dict{String, Any}
+end
+
+StructTypes.StructType(::Type{ToolCallFunction}) = StructTypes.Struct()
+
+@Base.kwdef struct ToolCall
+    func::ToolCallFunction
+end
+
+StructTypes.StructType(::Type{ToolCall}) = StructTypes.Struct()
+StructTypes.names(::Type{ToolCall}) = ((:func, :function),)
 
 # Options parameter object
 struct Top_logprobs
@@ -146,7 +184,6 @@ StructTypes.omitempties(::Type{Options}) = true
     think::Union{Nothing, Bool, String}=nothing
     raw::Union{Nothing, Bool}=nothing
     keep_alive::Union{Nothing, String}=nothing
-    # TODO add Options
     logprobs::Union{Nothing, Bool}=nothing
     top_logprobs::Union{Nothing, Int}=nothing
 end
@@ -183,7 +220,7 @@ StructTypes.StructType(::Type{GenerateResponse}) = StructTypes.Struct()
     role::String
     content::String = ""
     images::Union{Nothing, Vector{String}} = nothing
-    tool_calls::Union{Nothing, Vector{Dict{String, Any}}} = nothing
+    tool_calls::Union{Nothing, Vector{ToolCall}} = nothing
     thinking::Union{Nothing, String} = nothing
 end
 
@@ -200,7 +237,7 @@ StructTypes.omitempties(::Type{Message}) = true
     model::String
     # User can pass a dict or a built messages object
     messages::Union{AbstractDict, Vector{Message}}
-    # TODO build tools object and support abstractDict
+    tools::Union{Nothing, Vector}=nothing
     format::Union{Nothing, String, AbstractDict}=nothing
     options::Union{Nothing, Options}=nothing
     think::Union{Nothing, Bool, String}=nothing
@@ -218,7 +255,6 @@ StructTypes.excludes(::Type{ChatRequest}) = (:client,)
     model::String
     created_at::String
     message::Message
-    # Not all models have thinking
     done::Bool
     done_reason::Union{Nothing, String} = nothing
     total_duration::Union{Nothing, Int} = nothing
@@ -273,6 +309,27 @@ endpoint(::EmbedRequest) = "/api/embed"
 # Endpoints
 # *****
 
+# Internal helper to merge keyword arguments into Options struct
+function _mergeOptions(options::Union{Nothing, Options}; seed=nothing, temperature=nothing, top_k=nothing, top_p=nothing, min_p=nothing, stop=nothing, num_ctx=nothing, num_predict=nothing)
+    if any(!isnothing, (seed, temperature, top_k, top_p, min_p, stop, num_ctx, num_predict))
+        if isnothing(options)
+            return Options(seed=seed, temperature=temperature, top_k=top_k, top_p=top_p, min_p=min_p, stop=stop, num_ctx=num_ctx, num_predict=num_predict)
+        else
+            return Options(
+                seed = isnothing(seed) ? options.seed : seed,
+                temperature = isnothing(temperature) ? options.temperature : temperature,
+                top_k = isnothing(top_k) ? options.top_k : top_k,
+                top_p = isnothing(top_p) ? options.top_p : top_p,
+                min_p = isnothing(min_p) ? options.min_p : min_p,
+                stop = isnothing(stop) ? options.stop : stop,
+                num_ctx = isnothing(num_ctx) ? options.num_ctx : num_ctx,
+                num_predict = isnothing(num_predict) ? options.num_predict : num_predict
+            )
+        end
+    end
+    return options
+end
+
 # Generates a response for the provided prompt.
 # https://docs.ollama.com/api/generate
 function generate(;
@@ -289,10 +346,21 @@ function generate(;
     keep_alive::Union{Nothing, String} = nothing,
     options::Union{Nothing, Options} = nothing,
     logprobs::Union{Nothing, Bool} = nothing,
-    top_logprobs::Union{Nothing, Int} = nothing
+    top_logprobs::Union{Nothing, Int} = nothing,
+    seed::Union{Nothing, Int}=nothing,
+    temperature::Union{Nothing, Float64}=nothing,
+    top_k::Union{Nothing, Int}=nothing,
+    top_p::Union{Nothing, Float64}=nothing,
+    min_p::Union{Nothing, Float64}=nothing,
+    stop::Union{Nothing, String}=nothing,
+    num_ctx::Union{Nothing, Int}=nothing,
+    num_predict::Union{Nothing, Int}=nothing
 )
     # Process images if any are passed
     processedImages = isnothing(images) ? nothing : parseImage.(images)
+    
+    # Merge direct option kwargs
+    mergedOptions = _mergeOptions(options, seed=seed, temperature=temperature, top_k=top_k, top_p=top_p, min_p=min_p, stop=stop, num_ctx=num_ctx, num_predict=num_predict)
 
     # Build request object
     req = GenerateRequest(
@@ -307,7 +375,7 @@ function generate(;
         think=think,
         raw=raw,
         keep_alive=keep_alive,
-        options=options,
+        options=mergedOptions,
         logprobs=logprobs,
         top_logprobs=top_logprobs
     )
@@ -322,14 +390,22 @@ function chat(;
     client::Client=DEFAULT_OLLAMA_CLIENT,
     model::String,
     messages::Union{AbstractDict, Vector{Message}},
-    # TODO add tools object
+    tools::Union{Nothing, Vector} = nothing,
     format::Union{Nothing, String} = nothing,
     stream::Bool=true,
     think::Union{Nothing, Bool, String} = nothing,
     keep_alive::Union{Nothing, String} = nothing,
     options::Union{Nothing, Options} = nothing,
     logprobs::Union{Nothing, Bool} = nothing,
-    top_logprobs::Union{Nothing, Int} = nothing
+    top_logprobs::Union{Nothing, Int} = nothing,
+    seed::Union{Nothing, Int}=nothing,
+    temperature::Union{Nothing, Float64}=nothing,
+    top_k::Union{Nothing, Int}=nothing,
+    top_p::Union{Nothing, Float64}=nothing,
+    min_p::Union{Nothing, Float64}=nothing,
+    stop::Union{Nothing, String}=nothing,
+    num_ctx::Union{Nothing, Int}=nothing,
+    num_predict::Union{Nothing, Int}=nothing
 )
     # Process images in messages
     processedMessages = if messages isa Vector{Message}
@@ -343,16 +419,27 @@ function chat(;
     else
         messages
     end
+    
+    # Process tools
+    processedTools = if !isnothing(tools)
+        # Parse functions to Dicts or Tools, leave Dicts as is
+        Any[t isa Tool ? t : build_tool(t) for t in tools]
+    else
+        nothing
+    end
+    
+    mergedOptions = _mergeOptions(options, seed=seed, temperature=temperature, top_k=top_k, top_p=top_p, min_p=min_p, stop=stop, num_ctx=num_ctx, num_predict=num_predict)
 
     req = ChatRequest(
         client=client,
         model=model,
         messages=processedMessages,
+        tools=processedTools,
         format=format,
         stream=stream,
         think=think,
         keep_alive=keep_alive,
-        options=options,
+        options=mergedOptions,
         logprobs=logprobs,
         top_logprobs=top_logprobs
     )
@@ -372,7 +459,17 @@ function embed(;
     options::Union{Nothing, Options} = nothing,
     keep_alive::Union{Nothing, String} = nothing,
     top_logprobs::Union{Nothing, Int} = nothing,
+    seed::Union{Nothing, Int}=nothing,
+    temperature::Union{Nothing, Float64}=nothing,
+    top_k::Union{Nothing, Int}=nothing,
+    top_p::Union{Nothing, Float64}=nothing,
+    min_p::Union{Nothing, Float64}=nothing,
+    stop::Union{Nothing, String}=nothing,
+    num_ctx::Union{Nothing, Int}=nothing,
+    num_predict::Union{Nothing, Int}=nothing
 )
+    
+    mergedOptions = _mergeOptions(options, seed=seed, temperature=temperature, top_k=top_k, top_p=top_p, min_p=min_p, stop=stop, num_ctx=num_ctx, num_predict=num_predict)
 
     req = EmbedRequest(
         client=client,
@@ -380,7 +477,7 @@ function embed(;
         input=input,
         truncate=truncate,
         dimensions=dimensions,
-        options=options,
+        options=mergedOptions,
         keep_alive=keep_alive,
         top_logprobs=top_logprobs
     )

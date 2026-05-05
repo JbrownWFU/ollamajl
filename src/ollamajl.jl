@@ -43,6 +43,17 @@ abstract type AbstractRequest end
 abstract type AbstractResponse end
 
 # TODO fix
+"""
+    OllamaError(status, method, target, error)
+
+Exception thrown when the Ollama API returns an error status.
+
+# Fields
+- `status::Int`: HTTP status code (e.g., 404, 500).
+- `method::String`: HTTP method used (e.g., "POST").
+- `target::String`: The API endpoint target.
+- `error::String`: The error message returned by Ollama.
+"""
 struct OllamaError <: Exception
     status::Int
     method::String
@@ -71,7 +82,24 @@ function _error(err::HTTP.Exceptions.StatusError)
     )
 end
 
-# Ollama client
+"""
+    Client(; host="http://127.0.0.1:11434", headers=nothing, timeout=nothing)
+
+Represents a connection client to an Ollama server.
+
+If `headers` are provided, they will overwrite the default headers.
+
+# Arguments
+- `host::String`: The base URL of the Ollama API.
+- `headers::Vector{Pair{String, String}}`: Custom HTTP headers to include in requests.
+- `timeout::Union{Int64, Nothing}`: Timeout in seconds for the requests.
+
+# Examples
+```julia-repl
+julia> client = Client(host="http://127.0.0.1:11434")
+Client("http://127.0.0.1:11434", ["Content-Type" => "application/json", ...], nothing)
+```
+"""
 Base.@kwdef struct Client <: AbstractOllamaClient 
     host::String
     # headers::Dict{String, String}
@@ -155,6 +183,21 @@ end
 StructTypes.StructType(::Type{Logprobs}) = StructTypes.Struct()
 StructTypes.omitempties(::Type{Logprobs}) = true
 
+"""
+    Options(; kwargs...)
+
+Detailed generation options for Ollama models.
+
+# Arguments
+- `seed::Int`: Sets the random number seed to use for generation.
+- `temperature::Float64`: The temperature of the model. Increasing the temperature will make the model answer more creatively.
+- `top_k::Int`: Reduces the probability of generating nonsense. A higher value (e.g. 100) will give more diverse answers.
+- `top_p::Float64`: Works together with top-k. A higher value (e.g., 0.95) will lead to more diverse text.
+- `min_p::Float64`: Alternative to top_p.
+- `stop::String`: Sets the stop sequences to use.
+- `num_ctx::Int`: Sets the size of the context window used to generate the next token.
+- `num_predict::Int`: Maximum number of tokens to predict when generating text.
+"""
 @Base.kwdef struct Options 
     seed::Union{Nothing, Int}=nothing
     temperature::Union{Nothing, Float64}=nothing
@@ -193,6 +236,27 @@ StructTypes.omitempties(::Type{GenerateRequest}) = true
 StructTypes.excludes(::Type{GenerateRequest}) = (:client,)
 
 # TODO Deal with streamable vs non streamable
+"""
+    GenerateResponse
+
+The response returned by the `generate` endpoint.
+
+# Fields
+- `model::String`: The model name.
+- `created_at::String`: Timestamp of the response generation.
+- `response::String`: The generated text response.
+- `thinking::Union{Nothing, String}`: The reasoning/thinking process, if available.
+- `done::Bool`: Whether the generation is complete.
+- `done_reason::Union{Nothing, String}`: The reason generation stopped.
+- `context::Union{Nothing, Vector{Int}}`: An encoding of the conversation used in this response.
+- `total_duration::Int`: Time spent generating the response (nanoseconds).
+- `load_duration::Int`: Time spent in nanoseconds loading the model.
+- `prompt_eval_count::Int`: Number of tokens in the prompt.
+- `prompt_eval_duration::Int`: Time spent in nanoseconds evaluating the prompt.
+- `eval_count::Int`: Number of tokens in the response.
+- `eval_duration::Int`: Time in nanoseconds spent generating the response.
+- `logprobs::Union{Nothing, Vector{Logprobs}}`: Log probability of each token, if requested.
+"""
 @Base.kwdef struct GenerateResponse <: AbstractResponse
     model::String
     created_at::String
@@ -215,7 +279,24 @@ end
 # JSON3 serialization
 StructTypes.StructType(::Type{GenerateResponse}) = StructTypes.Struct()
 
-# Messages / Chat endpoint
+"""
+    Message(role, content[, images, tool_calls, thinking])
+
+Represents a single message in a chat conversation.
+
+# Arguments
+- `role::String`: The role of the message creator ("user", "assistant", or "system").
+- `content::String`: The text content of the message.
+- `images::Vector{String}`: Optional list of base64 encoded images or file paths.
+- `tool_calls::Vector{ToolCall}`: Optional list of tool calls made by the model.
+- `thinking::String`: Optional thinking/reasoning string for supported models.
+
+# Examples
+```julia-repl
+julia> msg = Message("user", "Hello!")
+Message("user", "Hello!", nothing, nothing, nothing)
+```
+"""
 @Base.kwdef struct Message
     role::String
     content::String = ""
@@ -251,6 +332,25 @@ StructTypes.StructType(::Type{ChatRequest}) = StructTypes.Struct()
 StructTypes.omitempties(::Type{ChatRequest}) = true
 StructTypes.excludes(::Type{ChatRequest}) = (:client,)
 
+"""
+    ChatResponse
+
+The response returned by the `chat` endpoint.
+
+# Fields
+- `model::String`: The model name.
+- `created_at::String`: Timestamp of the response generation.
+- `message::Message`: The chat message generated by the model.
+- `done::Bool`: Whether the generation is complete.
+- `done_reason::Union{Nothing, String}`: The reason generation stopped.
+- `total_duration::Int`: Time spent generating the response (nanoseconds).
+- `load_duration::Int`: Time spent in nanoseconds loading the model.
+- `prompt_eval_count::Int`: Number of tokens in the prompt.
+- `prompt_eval_duration::Int`: Time spent in nanoseconds evaluating the prompt.
+- `eval_count::Int`: Number of tokens in the response.
+- `eval_duration::Int`: Time in nanoseconds spent generating the response.
+- `logprobs::Union{Nothing, Vector{Logprobs}}`: Log probability of each token, if requested.
+"""
 @Base.kwdef struct ChatResponse <: AbstractResponse
     model::String
     created_at::String
@@ -284,6 +384,18 @@ StructTypes.StructType(::Type{EmbedRequest}) = StructTypes.Struct()
 StructTypes.omitempties(::Type{EmbedRequest}) = true
 StructTypes.excludes(::Type{EmbedRequest}) = (:client,)
 
+"""
+    EmbedResponse
+
+The response returned by the `embed` endpoint.
+
+# Fields
+- `model::String`: The model name.
+- `embeddings::Vector{Vector{Float64}}`: The generated vector embeddings.
+- `total_duration::Int`: Total time spent (nanoseconds).
+- `load_duration::Int`: Time spent in nanoseconds loading the model.
+- `prompt_eval_count::Int`: Number of tokens in the prompt.
+"""
 @Base.kwdef struct EmbedResponse <: AbstractResponse
     model::String
     embeddings::Union{Nothing, Vector{Vector{Float64}}} = nothing
@@ -330,8 +442,31 @@ function _mergeOptions(options::Union{Nothing, Options}; seed=nothing, temperatu
     return options
 end
 
-# Generates a response for the provided prompt.
-# https://docs.ollama.com/api/generate
+"""
+    generate(; model, prompt=nothing, stream=true, kwargs...)
+
+Generate a response for a given prompt using the specified model.
+
+If `stream` is `true`, returns a `Channel{GenerateResponse}` that yields responses as they are generated. Otherwise, returns a single `GenerateResponse`.
+
+# Arguments
+- `client::Client`: The client instance (defaults to `DEFAULT_OLLAMA_CLIENT`).
+- `model::String`: The name of the model to use (e.g., "llama3").
+- `prompt::String`: The prompt to generate a response for.
+- `system::String`: The system message to use.
+- `template::String`: The prompt template to use.
+- `stream::Bool`: Whether to stream the response. Defaults to `true`.
+- `think::Union{Nothing, Bool, String}`: Control the thinking process output.
+- `raw::Bool`: If `true`, no formatting will be applied to the prompt.
+- `keep_alive::String`: Controls how long the model will stay loaded into memory.
+- `options::Options`: Detailed generation options like `temperature`, `seed`, etc.
+
+# Examples
+```julia-repl
+julia> response = generate(model="llama3", prompt="Why is the sky blue?", stream=false)
+GenerateResponse(...)
+```
+"""
 function generate(;
     client::Client=DEFAULT_OLLAMA_CLIENT,
     model::String,
@@ -394,8 +529,29 @@ function generate(;
     return _request(client, req)
 end
 
-# Generate the next chat message in a conversation between a user and an assistant
-# https://docs.ollama.com/api/chat
+"""
+    chat(; model, messages, stream=true, kwargs...)
+
+Generate the next chat message in a conversation.
+
+If `stream` is `true`, returns a `Channel{ChatResponse}` that yields responses as they are generated. Otherwise, returns a single `ChatResponse`.
+
+# Arguments
+- `client::Client`: The client instance (defaults to `DEFAULT_OLLAMA_CLIENT`).
+- `model::String`: The name of the model to use.
+- `messages::Union{AbstractDict, Vector{Message}}`: The list of messages in the conversation.
+- `tools::Vector`: List of tools the model may use.
+- `format::String`: The format to return the response in (e.g., "json").
+- `stream::Bool`: Whether to stream the response. Defaults to `true`.
+- `keep_alive::String`: Controls how long the model will stay loaded into memory.
+
+# Examples
+```julia-repl
+julia> messages = [Message("user", "Hello!")]
+julia> response = chat(model="llama3", messages=messages, stream=false)
+ChatResponse(...)
+```
+"""
 function chat(;
     client::Client=DEFAULT_OLLAMA_CLIENT,
     model::String,
@@ -467,9 +623,24 @@ function chat(;
     return _request(client, req)
 end
 
-# Creates vector embeddings representing the input text
-# https://docs.ollama.com/api/embed
+"""
+    embed(; model, input, kwargs...)
 
+Generate vector embeddings for the provided input.
+
+# Arguments
+- `client::Client`: The client instance (defaults to `DEFAULT_OLLAMA_CLIENT`).
+- `model::String`: The name of the model to use.
+- `input::Union{String, Vector{String}}`: The input text or list of texts to embed.
+- `truncate::Bool`: Whether to truncate the input to fit the model's context window.
+- `dimensions::Int`: The number of dimensions for the embedding.
+
+# Examples
+```julia-repl
+julia> resp = embed(model="all-minilm", input="The sky is blue")
+EmbedResponse(...)
+```
+"""
 function embed(;
     client::Client=DEFAULT_OLLAMA_CLIENT,
     model::String,
@@ -582,13 +753,40 @@ function Base.show(io::IO, resp::ChatResponse)
     print(io, output)
 end
 
-# Pretty print response
+"""
+    pprint(resp)
+
+Pretty-print an Ollama response object with color formatting.
+
+# Examples
+```julia-repl
+julia> resp = chat(model="llama3", messages=[Message("user", "Hi")], stream=false)
+julia> pprint(resp)
+*** 2026-05-05T12:00:00Z ***
+llama3
+[assistant]: Hello! How can I help you today?
+```
+"""
 function pprint(resp::GenerateResponse) 
-    printstyled("*** $(resp.created_at) ***\n$(resp.model)\n$(resp.response)"; color=:cyan)
+    println("─"^40)
+    printstyled("Model: ", resp.model, "\n", color=:cyan, bold=true)
+    printstyled("Time:  ", resp.created_at, "\n", color=:light_black)
+    println("─"^40)
+    println(resp.response)
+    println("─"^40)
 end
 
 function pprint(resp::ChatResponse) 
-    printstyled("*** $(resp.created_at) ***\n$(resp.model)\n[$(resp.message.role)]: $(resp.message.content)"; color=:cyan)
+    println("─"^40)
+    printstyled("Model: ", resp.model, "\n", color=:cyan, bold=true)
+    printstyled("Time:  ", resp.created_at, "\n", color=:light_black)
+    println("─"^40)
+    
+    role = resp.message.role
+
+    printstyled("$role:\n", color=:blue, bold=true)
+    println(resp.message.content)
+    println("─"^40)
 end
 
 

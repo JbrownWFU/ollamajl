@@ -1,10 +1,17 @@
 module Utils
-    using Base64
+
+using Base64
 
 export encodeFile, parseImage, buildTool
 
-# Parse a user passed string and determine if its a base64 encode image or a file path
-# If file path encode image
+"""
+    parseImage(str::String)
+
+Parse a user-provided string and determine if it's a base64 encoded image or a file path.
+If it's a file path, it reads and encodes the file.
+
+Returns a base64 encoded string of the image data.
+"""
 function parseImage(str::String)
     # 1. Handle Data URI if present
     # e.g., data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...
@@ -21,7 +28,7 @@ function parseImage(str::String)
     # JPEG: /9j/
     # GIF: R0lG
     # WEBP: UklG
-    # Note does not support animated gifs
+    # Note: does not support animated gifs
     if startswith(str, "iVBOR") || startswith(str, "/9j/") || 
        startswith(str, "R0lG") || startswith(str, "UklG")
         return str
@@ -50,7 +57,11 @@ function parseImage(str::String)
     throw(ArgumentError("Invalid image input: String is neither a valid file path nor recognized as base64 encoded image data."))
 end
 
-# Base64 encode a file (usually images)
+"""
+    encodeFile(path::String)
+
+Base64 encode a file (usually images). Throws a `SystemError` if the file cannot be read.
+"""
 function encodeFile(path::String)
     if !isfile(path)
         throw(SystemError("Error reading file: $path", 2))
@@ -61,28 +72,38 @@ function encodeFile(path::String)
     end
 end
 
-# Build a tool from an AbstractDict (if the user manually created a schema)
+"""
+    buildTool(dict::AbstractDict)
+
+Build a tool from an `AbstractDict` (if the user manually created a schema).
+Returns the dictionary directly, which will be serialized by `JSON3`.
+"""
 function buildTool(dict::AbstractDict)
-    # We just return the dict, it will be serialized by JSON3
     return dict
 end
 
-# Inspect a Julia function and build a JSON schema tool
-function buildTool(f::Function)    name = string(nameof(f))
+"""
+    buildTool(f::Function)
+
+Inspect a Julia function and build a JSON schema tool definition for the Ollama API.
+It extracts the function name, documentation, and argument types via reflection.
+"""
+function buildTool(f::Function)
+    name = string(nameof(f))
     
     # Extract documentation
-    doc_str = ""
+    docStr = ""
     # Getting doc string safely (first block)
     try
-        doc_obj = Docs.doc(f)
-        if !isnothing(doc_obj)
+        docObj = Docs.doc(f)
+        if !isnothing(docObj)
             # Take the raw string and strip markdown or just use it directly
-            full_doc = string(doc_obj)
+            fullDoc = string(docObj)
             # Only use the first paragraph to avoid overwhelming the model with signature
-            doc_str = strip(split(full_doc, "\n\n")[1])
+            docStr = strip(split(fullDoc, "\n\n")[1])
             # If doc string is empty or just says "No documentation found.", ignore
-            if contains(doc_str, "No documentation found")
-                doc_str = ""
+            if contains(docStr, "No documentation found")
+                docStr = ""
             end
         end
     catch
@@ -101,19 +122,19 @@ function buildTool(f::Function)    name = string(nameof(f))
     required = String[]
     
     # Getting argument names using reflection (requires Julia 1.1+)
-    arg_names = Base.method_argnames(m)[2:end] # Skip #self#
-    arg_types = m.sig.types[2:end]
+    argNames = Base.method_argnames(m)[2:end] # Skip #self#
+    argTypes = m.sig.types[2:end]
     
-    for (i, arg_name) in enumerate(arg_names)
-        arg_str = string(arg_name)
-        if isempty(arg_str) || startswith(arg_str, "#")
+    for (i, argName) in enumerate(argNames)
+        argStr = string(argName)
+        if isempty(argStr) || startswith(argStr, "#")
             continue
         end
         
-        push!(required, arg_str)
-        T = arg_types[i]
+        push!(required, argStr)
+        T = argTypes[i]
         
-        json_type = if T <: Bool
+        jsonType = if T <: Bool
             "boolean"
         elseif T <: Integer
             "integer"
@@ -127,8 +148,8 @@ function buildTool(f::Function)    name = string(nameof(f))
             "string"
         end
         
-        properties[arg_str] = Dict{String, Any}(
-            "type" => json_type
+        properties[argStr] = Dict{String, Any}(
+            "type" => jsonType
         )
     end
     
@@ -143,7 +164,7 @@ function buildTool(f::Function)    name = string(nameof(f))
         "type" => "function",
         "function" => Dict{String, Any}(
             "name" => name,
-            "description" => isempty(doc_str) ? "Calls function $name" : doc_str,
+            "description" => isempty(docStr) ? "Calls function $name" : docStr,
             "parameters" => parameters
         )
     )

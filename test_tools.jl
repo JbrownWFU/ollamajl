@@ -10,7 +10,7 @@ function add_two_numbers(a::Int, b::Int)
     return a + b
 end
 
-t = Ollamajl.Utils.build_tool(add_two_numbers)
+t = Ollamajl.Utils.buildTool(add_two_numbers)
 println(JSON3.write(t))
 
 println("\n=== Testing ChatRequest Serialization ===")
@@ -33,7 +33,7 @@ subtract_tool = Dict(
 messages = [Message(role="user", content="What is three plus one?")]
 
 # Simulate what `chat()` does internally with tools
-processedTools = Any[t isa Ollamajl.Tool ? t : Ollamajl.Utils.build_tool(t) for t in [add_two_numbers, subtract_tool]]
+processedTools = Any[t isa Ollamajl.Tool ? t : Ollamajl.Utils.buildTool(t) for t in [add_two_numbers, subtract_tool]]
 
 req = Ollamajl.ChatRequest(
     model="llama3.1",

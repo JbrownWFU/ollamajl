@@ -27,7 +27,7 @@ using Base64
     @test_throws ArgumentError Ollamajl.Utils.parseImage("not a file and not base64")
 end
 
-@testset "Utils.build_tool" begin
+@testset "Utils.buildTool" begin
     """
     Test function for tool building
     """
@@ -35,7 +35,7 @@ end
         return "$s: $(x + y) ($b)"
     end
     
-    tool = Ollamajl.Utils.build_tool(my_test_func)
+    tool = Ollamajl.Utils.buildTool(my_test_func)
     @test tool["type"] == "function"
     @test tool["function"]["name"] == "my_test_func"
     @test tool["function"]["description"] == "Test function for tool building"

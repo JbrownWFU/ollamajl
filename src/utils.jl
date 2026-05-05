@@ -1,8 +1,8 @@
 module Utils
     using Base64
 
-export encodeFile, parseImage, build_tool
-    
+export encodeFile, parseImage, buildTool
+
 # Parse a user passed string and determine if its a base64 encode image or a file path
 # If file path encode image
 function parseImage(str::String)
@@ -35,7 +35,7 @@ function parseImage(str::String)
     catch
         false
     end
-    
+
     if isPath
         return encodeFile(str)
     end
@@ -45,7 +45,7 @@ function parseImage(str::String)
     if length(str) > 4096
         return str
     end
-    
+
     # Otherwise error
     throw(ArgumentError("Invalid image input: String is neither a valid file path nor recognized as base64 encoded image data."))
 end
@@ -55,21 +55,20 @@ function encodeFile(path::String)
     if !isfile(path)
         throw(SystemError("Error reading file: $path", 2))
     end
-    
+
     return open(path, "r") do io
         base64encode(io)
     end
 end
 
 # Build a tool from an AbstractDict (if the user manually created a schema)
-function build_tool(dict::AbstractDict)
+function buildTool(dict::AbstractDict)
     # We just return the dict, it will be serialized by JSON3
     return dict
 end
 
 # Inspect a Julia function and build a JSON schema tool
-function build_tool(f::Function)
-    name = string(nameof(f))
+function buildTool(f::Function)    name = string(nameof(f))
     
     # Extract documentation
     doc_str = ""

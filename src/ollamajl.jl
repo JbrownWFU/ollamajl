@@ -423,7 +423,7 @@ function chat(;
     # Process tools
     processedTools = if !isnothing(tools)
         # Parse functions to Dicts or Tools, leave Dicts as is
-        Any[t isa Tool ? t : build_tool(t) for t in tools]
+        Any[t isa Tool ? t : buildTool(t) for t in tools]
     else
         nothing
     end

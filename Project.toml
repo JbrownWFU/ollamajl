@@ -1,3 +1,8 @@
+name = "ollamajl"
+uuid = "c0001f77-c512-4088-a9bb-c90899e8eea0"
+authors = ["Jenson Brown <jensonianbrown@gmail.com>"]
+version = "0.1.0"
+
 [deps]
 Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 BufferedStreams = "e1450e63-4bb3-523b-b2a4-4ffa8c0fd77d"

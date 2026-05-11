@@ -11,17 +11,6 @@ export pprint,
     chat,
     Message,
     embed
-#=
-TODO
-- [x] Implement streaming for all request types
-- Fix Client instantiation
-- Build tools objects
-- Implement tool_calls in Message struct
-- Implement julia func -> tool utility
-- Ensure if a custom return schema is passed that it is able to be returned
-- Fix OllamaError exception handling
-- Fix Options and parameters in GenerateRequest
-=#
 
 # Jenson Brown - 05/2026
 

@@ -24,7 +24,7 @@ For more information on the underlying endpoints and capabilities, please refer 
 ```julia
 using Pkg
 # Add via URL until registered
-Pkg.add(url="https://github.com/yourusername/Ollamajl.jl")
+Pkg.add(url="https://github.com/JbrownWFU/Ollamajl.jl")
 ```
 
 ## Quick Start 🚀
